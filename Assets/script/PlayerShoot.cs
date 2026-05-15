@@ -4,7 +4,6 @@ public class PlayerShoot : MonoBehaviour
 {
     [Header("Raycast Settings")]
     [SerializeField] private float rayDistance = 50f;
-    [SerializeField] private LayerMask rayLayerMask = ~0;
 
     [Header("Shooting Settings")]
     [SerializeField] private GameObject ballPrefab;
@@ -23,9 +22,6 @@ public class PlayerShoot : MonoBehaviour
         // Рейкаст и определение цели
         targetInSight = PerformRaycastAndCheck();
 
-        // Выбор цвета цифрами
-        HandleColorSelectionInput();
-
         // Автоматический выстрел, только если есть цель и прошло время
         if (targetInSight && Time.time >= nextFireTime)
         {
@@ -41,26 +37,19 @@ public class PlayerShoot : MonoBehaviour
         Ray ray = new Ray(transform.position, transform.forward);
         Debug.DrawRay(ray.origin, ray.direction * rayDistance, Color.white);
 
-        if (Physics.Raycast(ray, out RaycastHit hit, rayDistance, rayLayerMask))
+        if (Physics.Raycast(ray, out RaycastHit hit, rayDistance))
         {
             BlockColor block = hit.collider.GetComponent<BlockColor>();
             if (block != null)
             {
                 Debug.Log("В прицеле кубик цвета: " + block.colorType);
-                return true;
+                if(block.colorType == currentColor)
+                {
+                    return true;
+                }
             }
         }
         return false;
-    }
-
-    private void HandleColorSelectionInput()
-    {
-        if (Input.GetKeyDown(KeyCode.Alpha1)) currentColor = ColorType.Red;
-        else if (Input.GetKeyDown(KeyCode.Alpha2)) currentColor = ColorType.Green;
-        else if (Input.GetKeyDown(KeyCode.Alpha3)) currentColor = ColorType.Blue;
-        else if (Input.GetKeyDown(KeyCode.Alpha4)) currentColor = ColorType.Yellow;
-        else if (Input.GetKeyDown(KeyCode.Alpha5)) currentColor = ColorType.Purple;
-        else if (Input.GetKeyDown(KeyCode.Alpha6)) currentColor = ColorType.Orange;
     }
 
     private void ShootBall()

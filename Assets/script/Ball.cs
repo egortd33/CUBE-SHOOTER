@@ -3,40 +3,45 @@ using UnityEngine;
 public class Ball : MonoBehaviour
 {
     public ColorType assignedColor;
-    public float speed = 20f;        // скорость движения
+    public float speed = 20f;
 
     private void Start()
     {
-        // Если используется Rigidbody, делаем его кинематическим, чтобы не мешал
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
     }
 
     private void Update()
     {
-        // Расстояние, которое шарик должен пройти в этом кадре
         float step = speed * Time.deltaTime;
         Vector3 direction = transform.forward;
 
-        // Рейкаст перед шариком
         RaycastHit hit;
         if (Physics.Raycast(transform.position, direction, out hit, step))
         {
-            // Мы что-то задели
-            BlockColor block = hit.collider.GetComponent<BlockColor>();
-            if (block != null)
+            // Получаем компонент цвета блока для проверки соответствия
+            BlockColor blockColor = hit.collider.GetComponent<BlockColor>();
+
+            if (blockColor != null && blockColor.colorType == assignedColor)
             {
-                if (block.colorType == assignedColor)
+                // Ищем компонент анимации уничтожения на блоке
+                BlockDestroyAnimation destroyAnim = hit.collider.GetComponent<BlockDestroyAnimation>();
+                if (destroyAnim != null)
                 {
-                    Destroy(block.gameObject); // уничтожаем кубик нужного цвета
+                    destroyAnim.PlayDestroyAnimation();
+                }
+                else
+                {
+                    // Если компонента нет – просто удаляем блок сразу (запасной вариант)
+                    Destroy(hit.collider.gameObject);
                 }
             }
-            // В любом случае уничтожаем шарик при попадании во что-либо
+
+            // Шарик в любом случае уничтожается при столкновении
             Destroy(gameObject);
         }
         else
         {
-            // Ничего не мешает – летим дальше
             transform.Translate(direction * step, Space.World);
         }
     }
