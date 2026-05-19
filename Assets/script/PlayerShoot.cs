@@ -16,9 +16,12 @@ public class PlayerShoot : MonoBehaviour
 
     private float nextFireTime;
     private bool targetInSight;   // флаг, есть ли кубик в прицеле
+    public bool IsActive = false; // флаг, есть ли кубик в прицеле
+
 
     private void Update()
     {
+        if (!IsActive) return;
         // Рейкаст и определение цели
         targetInSight = PerformRaycastAndCheck();
 
