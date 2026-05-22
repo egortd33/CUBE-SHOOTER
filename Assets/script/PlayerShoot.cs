@@ -1,85 +1,100 @@
 using UnityEngine;
+using DG.Tweening;
+using TMPro;
 
 public class PlayerShoot : MonoBehaviour
 {
-    [Header("Raycast Settings")]
-    [SerializeField] private float rayDistance = 50f;
+    [Header("Настройки стрельбы")]
+    [SerializeField] private int maxShots = 30;            // Максимальное количество выстрелов
+    [SerializeField] private TextMeshProUGUI shotsText;    // Ссылка на TextMeshPro для отображения счётчика
 
-    [Header("Shooting Settings")]
-    [SerializeField] private GameObject ballPrefab;
-    [SerializeField] private Transform firePoint;
-    [SerializeField] private float ballSpeed = 20f;    // для префаба Ball теперь не нужно, но можно оставить для передачи
-    [SerializeField] private float fireRate = 0.5f;
+    [Header("Эффект отдачи (отскок назад)")]
+    [SerializeField] private float recoilDistance = 0.3f;  // Насколько сильно персонаж отлетает назад
+    [SerializeField] private float recoilDuration = 0.1f;  // Длительность отдачи
 
-    [Header("Current Color")]
-    [SerializeField] private ColorType currentColor = ColorType.Red;
+    [Header("Уменьшение после всех выстрелов")]
+    [SerializeField] private float shrinkDuration = 1f;    // Время уменьшения до 0
+    [SerializeField] private Ease shrinkEase = Ease.InBack;// Тип анимации уменьшения
 
-    private float nextFireTime;
-    private bool targetInSight;   // флаг, есть ли кубик в прицеле
-    public bool IsActive = false; // флаг, есть ли кубик в прицеле
+    private int currentShots;          // Текущее количество сделанных выстрелов
+    private bool canShoot = true;      // Можно ли стрелять
 
+    private void Start()
+    {
+        currentShots = 0;
+        UpdateUI();
+    }
 
     private void Update()
     {
-        if (!IsActive) return;
-        // Рейкаст и определение цели
-        targetInSight = PerformRaycastAndCheck();
-
-        // Автоматический выстрел, только если есть цель и прошло время
-        if (targetInSight && Time.time >= nextFireTime)
+        // Для примера: выстрел по нажатию левой кнопки мыши или пробела.
+        // Вы можете заменить это на вызов метода Shoot() из другого скрипта.
+        if (canShoot && Input.GetButtonDown("Fire1"))
         {
-            ShootBall();
-            nextFireTime = Time.time + fireRate;
+            Shoot();
         }
-        // Если цель пропала, таймер не сбрасываем резко – просто ждём нового попадания
     }
 
-    // Возвращает true, если рейкаст попал в кубик с BlockColor
-    private bool PerformRaycastAndCheck()
+    /// <summary>
+    /// Метод выстрела. Увеличивает счётчик, проигрывает отдачу,
+    /// обновляет UI и запускает уменьшение при достижении лимита.
+    /// </summary>
+    public void Shoot()
     {
-        Ray ray = new Ray(transform.position, transform.forward);
-        Debug.DrawRay(ray.origin, ray.direction * rayDistance, Color.white);
-
-        if (Physics.Raycast(ray, out RaycastHit hit, rayDistance))
-        {
-            BlockColor block = hit.collider.GetComponent<BlockColor>();
-            if (block != null)
-            {
-                Debug.Log("В прицеле кубик цвета: " + block.colorType);
-                if(block.colorType == currentColor)
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private void ShootBall()
-    {
-        if (ballPrefab == null || firePoint == null)
-        {
-            Debug.LogWarning("ballPrefab или firePoint не назначены!");
+        if (!canShoot)
             return;
-        }
 
-        GameObject ball = Instantiate(ballPrefab, firePoint.position, firePoint.rotation);
-        Ball ballScript = ball.GetComponent<Ball>();
-        if (ballScript != null)
-        {
-            ballScript.assignedColor = currentColor;
-            ballScript.speed = ballSpeed;   // передаём скорость (можно и напрямую в префабе задавать)
-        }
-        else
-        {
-            Debug.LogError("На префабе шарика нет компонента Ball!");
-        }
+        // Увеличиваем счётчик выстрелов
+        currentShots++;
+        UpdateUI();
 
-        // Rigidbody больше не обязателен, но если есть – не мешает
-        Rigidbody rb = ball.GetComponent<Rigidbody>();
-        if (rb != null)
+        // --- Эффект отдачи (отскок назад) ---
+        // Используем DOPunchPosition: персонаж резко уходит назад и возвращается.
+        // punchDirection = -transform.forward даёт толчок в направлении, противоположном взгляду.
+        Vector3 punch = -transform.forward * recoilDistance;
+        transform.DOPunchPosition(punch, recoilDuration, vibrato: 0, elasticity: 0f)
+                 .SetId("Recoil"); // ID, чтобы можно было при необходимости убить твин
+
+        // Если хотите, чтобы персонаж просто отъезжал назад и не возвращался,
+        // замените строчку выше на:
+        // transform.DOMove(transform.position - transform.forward * recoilDistance, recoilDuration)
+        //          .SetRelative().SetEase(Ease.OutQuad);
+
+        // Проверяем, не достигнут ли лимит выстрелов
+        if (currentShots >= maxShots)
         {
-            rb.isKinematic = true; // чтобы физика не сдвигала шарик
+            canShoot = false;
+            StartShrink();
+        }
+    }
+
+    /// <summary>
+    /// Запускает плавное уменьшение персонажа до нулевого размера.
+    /// </summary>
+    private void StartShrink()
+    {
+        // Убиваем твин отдачи, если он ещё активен, чтобы не мешал
+        DOTween.Kill("Recoil");
+
+        // Анимация масштаба до (0,0,0)
+        transform.DOScale(Vector3.zero, shrinkDuration)
+                 .SetEase(shrinkEase)
+                 .OnComplete(() =>
+                 {
+                     // Действие после полного исчезновения (например, уничтожить объект)
+                     // Destroy(gameObject);
+                     Debug.Log("Персонаж полностью уменьшился");
+                 });
+    }
+
+    /// <summary>
+    /// Обновляет текст на экране.
+    /// </summary>
+    private void UpdateUI()
+    {
+        if (shotsText != null)
+        {
+            shotsText.text = $"Выстрелы: {currentShots}/{maxShots}";
         }
     }
 }
