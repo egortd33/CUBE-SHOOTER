@@ -1,100 +1,151 @@
 using UnityEngine;
 using DG.Tweening;
 using TMPro;
+using System; // или using TextMeshPro; если используется 3D-текст
 
 public class PlayerShoot : MonoBehaviour
 {
-    [Header("Настройки стрельбы")]
-    [SerializeField] private int maxShots = 30;            // Максимальное количество выстрелов
-    [SerializeField] private TextMeshProUGUI shotsText;    // Ссылка на TextMeshPro для отображения счётчика
+    [Header("Raycast Settings")]
+    [SerializeField] private float rayDistance = 50f;
 
-    [Header("Эффект отдачи (отскок назад)")]
-    [SerializeField] private float recoilDistance = 0.3f;  // Насколько сильно персонаж отлетает назад
-    [SerializeField] private float recoilDuration = 0.1f;  // Длительность отдачи
+    [SerializeField] private Transform ViselModels;
 
-    [Header("Уменьшение после всех выстрелов")]
-    [SerializeField] private float shrinkDuration = 1f;    // Время уменьшения до 0
-    [SerializeField] private Ease shrinkEase = Ease.InBack;// Тип анимации уменьшения
+    [Header("Shooting Settings")]
+    [SerializeField] private GameObject ballPrefab;
+    [SerializeField] private Transform firePoint;
+    [SerializeField] private float ballSpeed = 20f;
+    [SerializeField] private float fireRate = 0.5f;
+    [SerializeField] private int maxShots = 30;              // максимальное количество выстрелов
 
-    private int currentShots;          // Текущее количество сделанных выстрелов
-    private bool canShoot = true;      // Можно ли стрелять
+    [Header("Recoil Effect")]
+    [SerializeField] private float recoilDistans = 0.3f;       // сила отдачи (на сколько отъезжает назад)
+    [SerializeField] private float recoilDuration = 0.15f;   // длительность анимации отдачи
+    [SerializeField] private int recoilVibret = 5;   // длительность анимации отдачи
+    [SerializeField] private float recoilAlastic = 5;   // длительность анимации отдачи
+    [SerializeField] private float recoilEndel = 5;   // длительность анимации отдачи
+
+
+    [Header("Death Shrink")]
+    [SerializeField] private float shrinkDuration = 0.5f;    // время уменьшения до 0
+
+    [Header("UI")]
+    [SerializeField] private TMP_Text ammoText;              // ссылка на TextMeshPro (UI или 3D)
+
+    [Header("Current Color")]
+    [SerializeField] private ColorType currentColor = ColorType.Red;
+
+    private float nextFireTime;
+    private bool targetInSight;
+    public bool IsActive = false;
+
+    private int currentShots;
+    private bool isDead = false;                             // флаг, что персонаж уже "умер" (уменьшается)
 
     private void Start()
     {
-        currentShots = 0;
-        UpdateUI();
+        currentShots = maxShots;
+        UpdateAmmoText();
     }
 
     private void Update()
     {
-        // Для примера: выстрел по нажатию левой кнопки мыши или пробела.
-        // Вы можете заменить это на вызов метода Shoot() из другого скрипта.
-        if (canShoot && Input.GetButtonDown("Fire1"))
+        if (!IsActive || isDead) return;
+
+        targetInSight = PerformRaycastAndCheck();
+
+        // Стреляем только если есть цель, прошло время кд и остались патроны
+        if (targetInSight && Time.time >= nextFireTime && currentShots > 0)
         {
-            Shoot();
+            ShootBall();
+            nextFireTime = Time.time + fireRate;
         }
     }
 
-    /// <summary>
-    /// Метод выстрела. Увеличивает счётчик, проигрывает отдачу,
-    /// обновляет UI и запускает уменьшение при достижении лимита.
-    /// </summary>
-    public void Shoot()
+    private bool PerformRaycastAndCheck()
     {
-        if (!canShoot)
+        Ray ray = new Ray(transform.position, transform.forward);
+        Debug.DrawRay(ray.origin, ray.direction * rayDistance, Color.white);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, rayDistance))
+        {
+            BlockColor block = hit.collider.GetComponent<BlockColor>();
+            if (block != null && block.colorType == currentColor)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void ShootBall()
+    {
+        if (ballPrefab == null || firePoint == null)
+        {
+            Debug.LogWarning("ballPrefab или firePoint не назначены!");
             return;
+        }
 
-        // Увеличиваем счётчик выстрелов
-        currentShots++;
-        UpdateUI();
-
-        // --- Эффект отдачи (отскок назад) ---
-        // Используем DOPunchPosition: персонаж резко уходит назад и возвращается.
-        // punchDirection = -transform.forward даёт толчок в направлении, противоположном взгляду.
-        Vector3 punch = -transform.forward * recoilDistance;
-        transform.DOPunchPosition(punch, recoilDuration, vibrato: 0, elasticity: 0f)
-                 .SetId("Recoil"); // ID, чтобы можно было при необходимости убить твин
-
-        // Если хотите, чтобы персонаж просто отъезжал назад и не возвращался,
-        // замените строчку выше на:
-        // transform.DOMove(transform.position - transform.forward * recoilDistance, recoilDuration)
-        //          .SetRelative().SetEase(Ease.OutQuad);
-
-        // Проверяем, не достигнут ли лимит выстрелов
-        if (currentShots >= maxShots)
+        // Создаём шар
+        GameObject ball = Instantiate(ballPrefab, firePoint.position, firePoint.rotation);
+        Ball ballScript = ball.GetComponent<Ball>();
+        if (ballScript != null)
         {
-            canShoot = false;
-            StartShrink();
+            ballScript.assignedColor = currentColor;
+            ballScript.speed = ballSpeed;
+        }
+        else
+        {
+            Debug.LogError("На префабе шарика нет компонента Ball!");
+        }
+
+        // Отключаем физику у Rigidbody, если есть
+        Rigidbody rb = ball.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+        }
+        PlayRecloil();
+        // --- Учёт выстрелов ---
+        currentShots--;
+        UpdateAmmoText();
+
+        // Если патроны кончились – запускаем уменьшение
+        if (currentShots <= 0)
+        {
+            StartShrinkAndDeactivate();
         }
     }
 
-    /// <summary>
-    /// Запускает плавное уменьшение персонажа до нулевого размера.
-    /// </summary>
-    private void StartShrink()
+    private void PlayRecloil()
     {
-        // Убиваем твин отдачи, если он ещё активен, чтобы не мешал
-        DOTween.Kill("Recoil");
+        ViselModels.DOKill(true);
 
-        // Анимация масштаба до (0,0,0)
-        transform.DOScale(Vector3.zero, shrinkDuration)
-                 .SetEase(shrinkEase)
-                 .OnComplete(() =>
-                 {
-                     // Действие после полного исчезновения (например, уничтожить объект)
-                     // Destroy(gameObject);
-                     Debug.Log("Персонаж полностью уменьшился");
-                 });
+        ViselModels.DOPunchPosition(
+            new Vector3(0, 0, -recoilDistans),
+            recoilDuration,
+            recoilVibret,
+            recoilAlastic);
+
     }
 
-    /// <summary>
-    /// Обновляет текст на экране.
-    /// </summary>
-    private void UpdateUI()
+    private void StartShrinkAndDeactivate()
     {
-        if (shotsText != null)
+        if (isDead) return;
+        isDead = true;
+
+        // Останавливаем все твины на трансформе, чтобы не мешали
+        ViselModels.DOKill(false);
+        // Плавно уменьшаем scale до нуля
+        ViselModels.DOScale(Vector3.zero, shrinkDuration)
+                 .SetEase(Ease.InBack)   // можно выбрать любую кривую, например Ease.InBack для "схлопывания"
+                 .OnComplete(() => gameObject.SetActive(false));
+    }
+
+    private void UpdateAmmoText()
+    {
+        if (ammoText != null)
         {
-            shotsText.text = $"Выстрелы: {currentShots}/{maxShots}";
+            ammoText.text = $"{currentShots}";
         }
     }
 }
