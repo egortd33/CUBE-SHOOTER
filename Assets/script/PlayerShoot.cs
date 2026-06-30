@@ -32,7 +32,7 @@ public class PlayerShoot : MonoBehaviour
     [SerializeField] private TMP_Text ammoText;              // ссылка на TextMeshPro (UI или 3D)
 
     [Header("Current Color")]
-    [SerializeField] private ColorType currentColor = ColorType.Red;
+     public ColorType currentColor = ColorType.Red;
 
     private float nextFireTime;
     private bool targetInSight;
@@ -133,11 +133,12 @@ public class PlayerShoot : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
-        // Останавливаем все твины на трансформе, чтобы не мешали
+        // Удаляем из живой коллекции менеджера
+        CharacterSpawnManager.Instance?.RemoveCharacter(this);
+
         ViselModels.DOKill(false);
-        // Плавно уменьшаем scale до нуля
         ViselModels.DOScale(Vector3.zero, shrinkDuration)
-                 .SetEase(Ease.InBack)   // можно выбрать любую кривую, например Ease.InBack для "схлопывания"
+                 .SetEase(Ease.InBack)
                  .OnComplete(() => gameObject.SetActive(false));
     }
 
@@ -149,3 +150,4 @@ public class PlayerShoot : MonoBehaviour
         }
     }
 }
+
