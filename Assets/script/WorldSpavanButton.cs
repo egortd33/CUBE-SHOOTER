@@ -1,10 +1,16 @@
 using UnityEngine;
+using DG.Tweening;
+using Unity.VisualScripting;
 
 public class WorldSpavanButton : MonoBehaviour
 {
     [SerializeField] private ColorType buttonColor;   // цвет, за который отвечает эта кнопка
 
     private PersonRowManager rowManager;
+
+    private Transform ObjectScale;
+
+    private float ScaleDuration = 0.5f;
 
     private void Awake()
     {
@@ -13,6 +19,22 @@ public class WorldSpavanButton : MonoBehaviour
         {
             Debug.LogError($"PersonRowManager не найден в родительских объектах для {gameObject.name}", this);
         }
+    }
+
+    private void Start()
+    {
+        ObjectScale = transform;
+    }
+
+    public void DestroyAnimes()
+    {
+        ObjectScale.DOScale(Vector3.zero, ScaleDuration)
+            .SetEase(Ease.InBack)
+            .OnComplete(()=>
+            {
+                rowManager.Unlock_M();
+                Destroy(ObjectScale.gameObject);
+            }); 
     }
 
     private void OnMouseDown()
@@ -47,11 +69,13 @@ public class WorldSpavanButton : MonoBehaviour
 
             // Удаляем кнопку из очереди
             rowManager.Perons.Remove(transform);
-            Destroy(gameObject);
         }
         else
         {
             Debug.Log("Можно взаимодействовать только с первым объектом в очереди");
         }
+        rowManager.Lock_M();
+
+        DestroyAnimes();
     }
 }

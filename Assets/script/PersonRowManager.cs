@@ -27,6 +27,7 @@ public class PersonRowManager : MonoBehaviour
 
     public AlignmentAxis Alignment;
 
+
     private Vector3 GetAlignmentDirection()
     {
         return Alignment switch
@@ -108,5 +109,15 @@ public class PersonRowManager : MonoBehaviour
             Gizmos.DrawSphere(target, 0.5f);
             Gizmos.DrawLine(Perons[i].position, target);
         }
+    }
+
+    public void Lock_M()
+    {
+        isMovementLocked = true;
+    }
+
+    public void Unlock_M()
+    {
+        isMovementLocked = false;
     }
 }
