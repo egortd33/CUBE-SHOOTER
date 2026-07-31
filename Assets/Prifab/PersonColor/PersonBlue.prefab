@@ -105,6 +105,7 @@ GameObject:
   - component: {fileID: 5943402688724969617}
   - component: {fileID: 1537483233381659414}
   - component: {fileID: 6777853462184540064}
+  - component: {fileID: -37833233852888674}
   m_Layer: 0
   m_Name: PersonBlue
   m_TagString: Untagged
@@ -280,6 +281,21 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &-37833233852888674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4801018683084439194}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53f43fb9607767645a9eec39bdb2cee5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScaleFromZero
+  _duration: 0.5
+  _ease: 27
+  _playOnStart: 1
 --- !u!1 &5617146262995573813
 GameObject:
   m_ObjectHideFlags: 0
